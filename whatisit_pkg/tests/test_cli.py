@@ -144,6 +144,17 @@ class TestCmdQueryQuietDangerRefusal:
         rc = cli.main(["-q"])
         assert rc == 0  # falls through to help, per main()'s "no words" branch
 
+    def test_refuse_execute_in_windows(self, monkeypatch, capsys):
+        # Patch the helper, not os.name: setting os.name="nt" on Linux makes
+        # Path.home() (via load_config in main) raise RuntimeError.
+        monkeypatch.setattr(cli, "_is_windows", lambda: True)
+        monkeypatch.setattr(
+            cli.engine, "generate",
+            lambda prompt, cfg, n=1, force_oneshot=False, quiet=False:
+                (["ls -la"], 0.01, "server"))
+        rc = cli.main(["-e", "list", "files"])
+        assert rc == 7
+        assert "disabled" in capsys.readouterr().out
 
 # ------------------------------------------------------------------ parser
 
@@ -201,3 +212,4 @@ def test_subcommand_word_inside_a_question_stays_a_question():
     a = cli.QueryArgs(["how", "do", "I", "stop", "a", "stuck", "process"])
     assert a.words[0] == "how"
     assert a.stray_flags == []
+
